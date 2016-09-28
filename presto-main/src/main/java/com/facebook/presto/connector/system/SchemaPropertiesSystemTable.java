@@ -17,12 +17,12 @@ import com.facebook.presto.metadata.Metadata;
 
 import javax.inject.Inject;
 
-public class TablePropertiesSystemTable
+public class SchemaPropertiesSystemTable
         extends AbstractPropertiesSystemTable
 {
     @Inject
-    public TablePropertiesSystemTable(Metadata metadata)
+    public SchemaPropertiesSystemTable(Metadata metadata)
     {
-        super("table_properties", () -> metadata.getTablePropertyManager().getAllProperties());
+        super("schema_properties", () -> metadata.getSchemaPropertyManager().getAllProperties());
     }
 }

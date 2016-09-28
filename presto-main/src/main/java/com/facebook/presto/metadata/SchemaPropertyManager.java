@@ -11,18 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.system;
+package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.Metadata;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 
-import javax.inject.Inject;
-
-public class TablePropertiesSystemTable
-        extends AbstractPropertiesSystemTable
+public class SchemaPropertyManager
+        extends AbstractPropertyManager
 {
-    @Inject
-    public TablePropertiesSystemTable(Metadata metadata)
+    public SchemaPropertyManager()
     {
-        super("table_properties", () -> metadata.getTablePropertyManager().getAllProperties());
+        super("schema", INVALID_SCHEMA_PROPERTY);
     }
 }

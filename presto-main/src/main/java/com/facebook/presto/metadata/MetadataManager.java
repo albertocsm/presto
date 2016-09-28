@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -116,6 +117,7 @@ public class MetadataManager
     private final JsonCodec<ViewDefinition> viewCodec;
     private final BlockEncodingSerde blockEncodingSerde;
     private final SessionPropertyManager sessionPropertyManager;
+    private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final TransactionManager transactionManager;
 
@@ -123,10 +125,18 @@ public class MetadataManager
             TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
+            SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
             TransactionManager transactionManager)
     {
-        this(featuresConfig, typeManager, createTestingViewCodec(), blockEncodingSerde, sessionPropertyManager, tablePropertyManager, transactionManager);
+        this(featuresConfig,
+                typeManager,
+                createTestingViewCodec(),
+                blockEncodingSerde,
+                sessionPropertyManager,
+                schemaPropertyManager,
+                tablePropertyManager,
+                transactionManager);
     }
 
     @Inject
@@ -135,6 +145,7 @@ public class MetadataManager
             JsonCodec<ViewDefinition> viewCodec,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
+            SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
             TransactionManager transactionManager)
     {
@@ -144,6 +155,7 @@ public class MetadataManager
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
@@ -152,12 +164,15 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager()
     {
-        FeaturesConfig featuresConfig = new FeaturesConfig();
         TypeManager typeManager = new TypeRegistry();
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
-        TransactionManager transactionManager = createTestTransactionManager();
-        return new MetadataManager(featuresConfig, typeManager, blockEncodingSerde, sessionPropertyManager, new TablePropertyManager(), transactionManager);
+        return new MetadataManager(
+                new FeaturesConfig(),
+                typeManager,
+                new BlockEncodingManager(typeManager),
+                new SessionPropertyManager(),
+                new SchemaPropertyManager(),
+                new TablePropertyManager(),
+                createTestTransactionManager());
     }
 
     public synchronized void registerConnectorCatalog(ConnectorId connectorId, String catalogName)
@@ -262,7 +277,7 @@ public class MetadataManager
     }
 
     @Override
-    public boolean schemaExists(Session session, QualifiedSchemaName schema)
+    public boolean schemaExists(Session session, CatalogSchemaName schema)
     {
         for (ConnectorEntry entry : allConnectorsFor(schema.getCatalogName())) {
             ConnectorMetadata metadata = entry.getMetadata(session);
@@ -453,6 +468,33 @@ public class MetadataManager
             }
         }
         return ImmutableMap.copyOf(tableColumns);
+    }
+
+    @Override
+    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties)
+    {
+        ConnectorEntry entry = connectorsByCatalog.get(schema.getCatalogName());
+        checkArgument(entry != null, "Catalog %s does not exist", schema.getCatalogName());
+        ConnectorMetadata metadata = entry.getMetadataForWrite(session);
+        metadata.createSchema(session.toConnectorSession(entry.getConnectorId()), schema.getSchemaName(), properties);
+    }
+
+    @Override
+    public void dropSchema(Session session, CatalogSchemaName schema)
+    {
+        ConnectorEntry entry = connectorsByCatalog.get(schema.getCatalogName());
+        checkArgument(entry != null, "Catalog %s does not exist", schema.getCatalogName());
+        ConnectorMetadata metadata = entry.getMetadataForWrite(session);
+        metadata.dropSchema(session.toConnectorSession(entry.getConnectorId()), schema.getSchemaName());
+    }
+
+    @Override
+    public void renameSchema(Session session, CatalogSchemaName source, String target)
+    {
+        ConnectorEntry entry = connectorsByCatalog.get(source.getCatalogName());
+        checkArgument(entry != null, "Catalog %s does not exist", source.getCatalogName());
+        ConnectorMetadata metadata = entry.getMetadataForWrite(session);
+        metadata.renameSchema(session.toConnectorSession(entry.getConnectorId()), source.getSchemaName(), target);
     }
 
     @Override
@@ -754,6 +796,12 @@ public class MetadataManager
     public SessionPropertyManager getSessionPropertyManager()
     {
         return sessionPropertyManager;
+    }
+
+    @Override
+    public SchemaPropertyManager getSchemaPropertyManager()
+    {
+        return schemaPropertyManager;
     }
 
     @Override

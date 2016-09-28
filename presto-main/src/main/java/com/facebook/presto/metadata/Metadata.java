@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -50,7 +51,7 @@ public interface Metadata
 
     void addFunctions(List<? extends SqlFunction> functions);
 
-    boolean schemaExists(Session session, QualifiedSchemaName schema);
+    boolean schemaExists(Session session, CatalogSchemaName schema);
 
     @NotNull
     List<String> listSchemaNames(Session session, String catalogName);
@@ -119,6 +120,21 @@ public interface Metadata
      */
     @NotNull
     Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Creates a schema.
+     */
+    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties);
+
+    /**
+     * Drops the specified schema.
+     */
+    void dropSchema(Session session, CatalogSchemaName schema);
+
+    /**
+     * Renames the specified schema.
+     */
+    void renameSchema(Session session, CatalogSchemaName source, String target);
 
     /**
      * Creates a table using the specified table metadata.
@@ -259,6 +275,8 @@ public interface Metadata
     BlockEncodingSerde getBlockEncodingSerde();
 
     SessionPropertyManager getSessionPropertyManager();
+
+    SchemaPropertyManager getSchemaPropertyManager();
 
     TablePropertyManager getTablePropertyManager();
 }
